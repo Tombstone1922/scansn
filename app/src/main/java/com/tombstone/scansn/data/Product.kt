@@ -26,6 +26,7 @@ enum class ProductCategory(val title: String, val requiresImei: Boolean) {
 data class ProductEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val category: ProductCategory = ProductCategory.PHONE,
+    val componentType: String = "",
     val marketplace: String = "WB",
     val brand: String = "",
     val model: String = "",
@@ -62,19 +63,24 @@ interface ProductDao {
     suspend fun findImeiDuplicate(value: String, excludeId: Long): ProductEntity?
 }
 
-@Database(entities = [ProductEntity::class], version = 1, exportSchema = true)
+@Database(entities = [ProductEntity::class], version = 2, exportSchema = true)
 abstract class ScanSNDatabase : RoomDatabase() {
     abstract fun productDao(): ProductDao
 
     companion object {
         @Volatile private var instance: ScanSNDatabase? = null
+        private val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE products ADD COLUMN componentType TEXT NOT NULL DEFAULT ''")
+            }
+        }
 
         fun get(context: Context): ScanSNDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(
                 context.applicationContext,
                 ScanSNDatabase::class.java,
                 "scansn.db",
-            ).build().also { instance = it }
+            ).addMigrations(MIGRATION_1_2).build().also { instance = it }
         }
     }
 }

@@ -13,8 +13,8 @@ android {
         applicationId = "com.tombstone.scansn"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -73,5 +73,6 @@ dependencies {
     implementation(libs.androidx.camera.view)
     implementation(libs.mlkit.barcode)
     testImplementation(libs.junit)
+    testImplementation(libs.json)
     debugImplementation(libs.compose.ui.tooling)
 }

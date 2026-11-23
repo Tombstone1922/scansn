@@ -12,7 +12,7 @@ import java.util.zip.ZipOutputStream
 
 object TableExport {
     val headers = listOf(
-        "Площадка", "Тип товара", "Бренд", "Модель", "Цвет", "Аккаунт",
+        "Площадка", "Тип товара", "Подкатегория", "Бренд", "Модель", "Цвет", "Аккаунт",
         "Цена", "Таможенная пошлина", "SN", "IMEI", "Номер заказа",
         "Комментарий", "Дата изменения",
     )
@@ -49,7 +49,7 @@ object TableExport {
             append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>")
             append("<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">")
             append("<sheetViews><sheetView workbookViewId=\"0\"><pane ySplit=\"1\" topLeftCell=\"A2\" activePane=\"bottomLeft\" state=\"frozen\"/></sheetView></sheetViews>")
-            append("<cols><col min=\"1\" max=\"13\" width=\"20\" customWidth=\"1\"/><col min=\"4\" max=\"4\" width=\"36\" customWidth=\"1\"/></cols><sheetData>")
+            append("<cols><col min=\"1\" max=\"14\" width=\"20\" customWidth=\"1\"/><col min=\"5\" max=\"5\" width=\"36\" customWidth=\"1\"/></cols><sheetData>")
             rows.forEachIndexed { rowIndex, values ->
                 append("<row r=\"${rowIndex + 1}\">")
                 values.forEachIndexed { columnIndex, value ->
@@ -57,7 +57,7 @@ object TableExport {
                 }
                 append("</row>")
             }
-            append("</sheetData><autoFilter ref=\"A1:M${rows.size.coerceAtLeast(1)}\"/></worksheet>")
+            append("</sheetData><autoFilter ref=\"A1:N${rows.size.coerceAtLeast(1)}\"/></worksheet>")
         }
 
         ZipOutputStream(output).use { zip ->
@@ -72,6 +72,7 @@ object TableExport {
     private fun row(product: ProductEntity): List<String> = listOf(
         product.marketplace,
         product.category.title,
+        product.componentType,
         product.brand,
         product.model,
         product.color,

@@ -7,8 +7,13 @@ import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.util.Size
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
+import androidx.camera.view.CameraController
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
@@ -20,7 +25,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -31,6 +35,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -38,6 +43,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -65,10 +71,25 @@ fun ScannerScreen(target: ScanTarget, onClose: () -> Unit, onCode: (String) -> U
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
     }
     var torchOn by remember { mutableStateOf(false) }
+    var zoom by remember { mutableFloatStateOf(0.15f) }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         hasPermission = it
     }
-    val controller = remember { LifecycleCameraController(context) }
+    val controller = remember {
+        LifecycleCameraController(context).apply {
+            setImageAnalysisResolutionSelector(
+                ResolutionSelector.Builder().setResolutionStrategy(
+                    ResolutionStrategy(
+                        Size(1920, 1080),
+                        ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER,
+                    ),
+                ).build(),
+            )
+            setImageAnalysisBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            setPinchToZoomEnabled(true)
+            setTapToFocusEnabled(true)
+        }
+    }
     val barcodeScanner = remember {
         BarcodeScanning.getClient(
             BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS).build(),
@@ -80,7 +101,10 @@ fun ScannerScreen(target: ScanTarget, onClose: () -> Unit, onCode: (String) -> U
         if (!hasPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
     LaunchedEffect(hasPermission) {
-        if (hasPermission) controller.bindToLifecycle(lifecycleOwner)
+        if (hasPermission) {
+            controller.bindToLifecycle(lifecycleOwner)
+            controller.setLinearZoom(zoom)
+        }
     }
     DisposableEffect(hasPermission) {
         if (hasPermission) {
@@ -113,16 +137,43 @@ fun ScannerScreen(target: ScanTarget, onClose: () -> Unit, onCode: (String) -> U
                 modifier = Modifier.fillMaxSize(),
             )
             Box(
-                Modifier.align(Alignment.Center).fillMaxWidth(0.82f).height(220.dp)
-                    .border(3.dp, Color(0xFF8FE3CF), RoundedCornerShape(24.dp)),
+                Modifier.align(Alignment.Center).fillMaxWidth(0.94f).height(140.dp)
+                    .border(3.dp, Color(0xFF8FE3CF), RoundedCornerShape(18.dp)),
             )
-            Text(
-                "Наведите камеру на штрихкод\nРезультат попадёт в поле «${target.fieldTitle}»",
-                modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 32.dp, vertical = 72.dp),
-                color = Color.White,
-                textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.titleMedium,
-            )
+            Column(
+                Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                    .background(Color.Black.copy(alpha = 0.72f)).padding(horizontal = 24.dp, vertical = 18.dp),
+            ) {
+                Text(
+                    "Весь штрихкод — внутри рамки",
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    "Для узкого кода увеличьте масштаб и коснитесь кода для фокуса",
+                    color = Color.White.copy(alpha = 0.85f),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Slider(
+                    value = zoom,
+                    onValueChange = {
+                        zoom = it
+                        controller.setLinearZoom(it)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    "Результат попадёт в поле «${target.fieldTitle}»",
+                    color = Color(0xFF8FE3CF),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         } else {
             Column(
                 Modifier.align(Alignment.Center).padding(32.dp),
@@ -149,7 +200,7 @@ fun ScannerScreen(target: ScanTarget, onClose: () -> Unit, onCode: (String) -> U
                 if (hasPermission) {
                     IconButton(onClick = {
                         torchOn = !torchOn
-                        controller.cameraControl?.enableTorch(torchOn)
+                        controller.enableTorch(torchOn)
                     }) {
                         Icon(
                             if (torchOn) Icons.Default.FlashOff else Icons.Default.FlashOn,

@@ -1,46 +1,102 @@
 package com.tombstone.scansn.data
 
+import android.content.Context
+import org.json.JSONObject
+
+private data class CatalogEntry(
+    val brand: String,
+    val componentType: String = "",
+    val models: List<String>,
+)
+
 object Catalog {
-    val marketplaces = listOf("WB", "Ozon", "Яндекс Маркет", "AliExpress", "Авито", "Другое")
-
-    private val commonBrands = listOf("Acer", "Apple", "ASUS", "Dell", "HP", "Huawei", "Lenovo", "MSI", "Samsung", "Xiaomi")
-    private val phoneBrands = listOf("Google", "Honor", "Infinix", "Motorola", "Nothing", "OnePlus", "Oppo", "Poco", "Realme", "Tecno", "Vivo", "ZTE")
-    private val componentBrands = listOf("AMD", "ASRock", "Cooler Master", "Corsair", "DeepCool", "GIGABYTE", "Intel", "Kingston", "MSI", "NZXT", "Palit", "Sapphire", "Seagate", "Thermaltake", "Western Digital", "Zotac")
-
-    private val models = mapOf(
-        "Motorola" to listOf("Edge 50 Fusion", "Moto G100", "Moto G100 Pro"),
-        "Lenovo" to listOf("Xiaoxin Pad 2025, 11\", 6/128 ГБ, Wi-Fi", "Xiaoxin Pad 2025, 11\", 8/128 ГБ, Wi-Fi", "IdeaPad"),
-        "Honor" to listOf("Magic Pad 10"),
-        "OnePlus" to listOf("OnePlus 15", "OnePlus 13"),
-        "Poco" to listOf("F8 Pro", "X7 Pro"),
-        "Samsung" to listOf("Galaxy S25", "Galaxy A56", "Galaxy Tab S10"),
-        "Apple" to listOf("iPhone 16", "iPhone 17", "iPad 11"),
-        "AMD" to listOf("Ryzen 5 7500F", "Ryzen 7 7800X3D", "Ryzen 7 9800X3D"),
-        "Intel" to listOf("Core i5-14400F", "Core Ultra 7 265K"),
-        "ASUS" to listOf("TUF Gaming", "ROG Strix", "Prime"),
-        "MSI" to listOf("Ventus", "Gaming X", "MAG"),
-        "Kingston" to listOf("FURY Beast", "NV3"),
+    val marketplaces = listOf(
+        "WB", "Ozon", "Яндекс Маркет", "AliExpress", "Авито",
+        "DNS", "М.Видео", "Ситилинк", "Другое",
     )
 
-    fun brands(category: ProductCategory, history: List<ProductEntity>): List<String> {
-        val presets = when (category) {
-            ProductCategory.PHONE -> phoneBrands + commonBrands
-            ProductCategory.TABLET -> commonBrands + listOf("Honor", "Lenovo", "Poco", "Realme", "Xiaomi")
-            ProductCategory.PC_COMPONENT -> componentBrands
+    @Volatile private var loaded = false
+    private var entries: Map<ProductCategory, List<CatalogEntry>> = emptyMap()
+
+    fun init(context: Context) {
+        if (loaded) return
+        synchronized(this) {
+            if (loaded) return
+            entries = try {
+                val json = context.assets.open("catalog.json").bufferedReader().use { it.readText() }
+                val root = JSONObject(json)
+                ProductCategory.entries.associateWith { category ->
+                    val array = root.getJSONArray(category.catalogKey)
+                    buildList {
+                        for (index in 0 until array.length()) {
+                            val item = array.getJSONObject(index)
+                            val modelArray = item.getJSONArray("models")
+                            add(
+                                CatalogEntry(
+                                    brand = item.getString("brand"),
+                                    componentType = item.optString("componentType"),
+                                    models = buildList {
+                                        for (modelIndex in 0 until modelArray.length()) {
+                                            add(modelArray.getString(modelIndex))
+                                        }
+                                    },
+                                ),
+                            )
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+                emptyMap()
+            }
+            loaded = true
         }
-        return (history.map { it.brand } + presets)
-            .filter { it.isNotBlank() }
-            .distinctBy { it.lowercase() }
-            .sortedBy { it.lowercase() }
     }
 
-    fun models(brand: String, category: ProductCategory, history: List<ProductEntity>): List<String> {
+    fun componentTypes(history: List<ProductEntity>): List<String> = (
+        entries[ProductCategory.PC_COMPONENT].orEmpty().map { it.componentType } +
+            history.filter { it.category == ProductCategory.PC_COMPONENT }.map { it.componentType }
+        ).filter { it.isNotBlank() }.distinct().sorted()
+
+    fun brands(
+        category: ProductCategory,
+        history: List<ProductEntity>,
+        componentType: String = "",
+    ): List<String> {
+        val presets = entries[category].orEmpty()
+            .filter { category != ProductCategory.PC_COMPONENT || componentType.isBlank() || it.componentType == componentType }
+            .map { it.brand }
         val historical = history.filter {
-            it.brand.equals(brand, ignoreCase = true) && it.category == category
-        }.map { it.model }
-        return (historical + models.entries.firstOrNull { it.key.equals(brand, true) }?.value.orEmpty())
-            .filter { it.isNotBlank() }
-            .distinctBy { it.lowercase() }
-            .sortedBy { it.lowercase() }
+            it.category == category &&
+                (category != ProductCategory.PC_COMPONENT || componentType.isBlank() || it.componentType == componentType)
+        }.map { it.brand }
+        return (historical + presets).filter { it.isNotBlank() }.distinctBy { it.lowercase() }.sortedBy { it.lowercase() }
     }
+
+    fun models(
+        brand: String,
+        category: ProductCategory,
+        history: List<ProductEntity>,
+        componentType: String = "",
+    ): List<String> {
+        val historical = history.filter {
+            it.brand.equals(brand, ignoreCase = true) && it.category == category &&
+                (category != ProductCategory.PC_COMPONENT || componentType.isBlank() || it.componentType == componentType)
+        }.map { it.model }
+        val presets = entries[category].orEmpty()
+            .filter {
+                it.brand.equals(brand, ignoreCase = true) &&
+                    (category != ProductCategory.PC_COMPONENT || componentType.isBlank() || it.componentType == componentType)
+            }
+            .flatMap { it.models }
+        return (historical + presets).filter { it.isNotBlank() }.distinctBy { it.lowercase() }.sortedBy { it.lowercase() }
+    }
+
+    fun modelCount(category: ProductCategory): Int = entries[category].orEmpty().sumOf { it.models.size }
+
+    private val ProductCategory.catalogKey: String
+        get() = when (this) {
+            ProductCategory.PHONE -> "phone"
+            ProductCategory.TABLET -> "tablet"
+            ProductCategory.PC_COMPONENT -> "pc_component"
+        }
 }

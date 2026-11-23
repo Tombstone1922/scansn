@@ -122,6 +122,7 @@ class ScanSNViewModel(private val repository: ProductRepository) : ViewModel() {
     }
 
     private fun validate(product: ProductEntity): String? = when {
+        product.category == ProductCategory.PC_COMPONENT && product.componentType.isBlank() -> "Выберите тип комплектующего"
         product.brand.isBlank() -> "Укажите бренд"
         product.model.isBlank() -> "Укажите модель"
         product.sn.isBlank() -> "Отсканируйте или введите SN"
@@ -133,6 +134,7 @@ class ScanSNViewModel(private val repository: ProductRepository) : ViewModel() {
     }
 
     private fun ProductEntity.normalized(): ProductEntity = copy(
+        componentType = if (category == ProductCategory.PC_COMPONENT) componentType.trim() else "",
         brand = brand.trim(),
         model = model.trim(),
         color = color.trim(),

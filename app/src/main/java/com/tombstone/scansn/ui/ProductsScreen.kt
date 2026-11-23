@@ -185,7 +185,7 @@ private fun ProductCard(product: ProductEntity, onEdit: (Long) -> Unit, onDelete
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        product.category.title,
+                        listOf(product.category.title, product.componentType).filter { it.isNotBlank() }.joinToString(" • "),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.secondary,
                     )

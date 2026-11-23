@@ -97,17 +97,30 @@ fun ProductFormScreen(
             }
 
             SectionTitle("Товар")
+            if (draft.category == ProductCategory.PC_COMPONENT) {
+                SuggestionField(
+                    value = draft.componentType,
+                    label = "Тип комплектующего",
+                    suggestions = Catalog.componentTypes(products),
+                    onValueChange = { value -> viewModel.updateDraft { it.copy(componentType = value) } },
+                )
+            }
             SuggestionField(
                 value = draft.brand,
                 label = "Бренд *",
-                suggestions = Catalog.brands(draft.category, products),
+                suggestions = Catalog.brands(draft.category, products, draft.componentType),
                 onValueChange = { value -> viewModel.updateDraft { it.copy(brand = value) } },
             )
             SuggestionField(
                 value = draft.model,
                 label = "Модель и конфигурация *",
-                suggestions = Catalog.models(draft.brand, draft.category, products),
+                suggestions = Catalog.models(draft.brand, draft.category, products, draft.componentType),
                 onValueChange = { value -> viewModel.updateDraft { it.copy(model = value) } },
+            )
+            Text(
+                "Офлайн-каталог: ${Catalog.modelCount(draft.category)} моделей. Можно вводить своё значение.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
             )
             SuggestionField(
                 value = draft.marketplace,
