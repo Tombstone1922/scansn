@@ -49,8 +49,12 @@ fun ScanSNApp(viewModel: ScanSNViewModel) {
                     },
                     onBarcodes = { navController.navigate("barcodes/$it") },
                     onExport = { navController.navigate("export") },
+                    onUpdates = { navController.navigate("updates") },
                     onDelete = viewModel::delete,
                 )
+            }
+            composable("updates") {
+                UpdatesScreen(onBack = { navController.popBackStack() })
             }
             composable(
                 route = "product/{productId}",
