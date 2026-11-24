@@ -50,6 +50,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.findRootCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
@@ -60,6 +63,7 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.tombstone.scansn.scanner.BarcodeAnalyzer
+import com.tombstone.scansn.scanner.ViewScanRegion
 import java.util.concurrent.Executors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -72,6 +76,7 @@ fun ScannerScreen(target: ScanTarget, onClose: () -> Unit, onCode: (String) -> U
     }
     var torchOn by remember { mutableStateOf(false) }
     var zoom by remember { mutableFloatStateOf(0.15f) }
+    var scanRegion by remember { mutableStateOf<ViewScanRegion?>(null) }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         hasPermission = it
     }
@@ -106,12 +111,20 @@ fun ScannerScreen(target: ScanTarget, onClose: () -> Unit, onCode: (String) -> U
             controller.setLinearZoom(zoom)
         }
     }
-    DisposableEffect(hasPermission) {
+    DisposableEffect(hasPermission, target) {
         if (hasPermission) {
-            controller.setImageAnalysisAnalyzer(executor, BarcodeAnalyzer(barcodeScanner) {
-                vibrate(context)
-                onCode(it)
-            })
+            controller.setImageAnalysisAnalyzer(
+                executor,
+                BarcodeAnalyzer(
+                    scanner = barcodeScanner,
+                    target = target,
+                    scanRegionProvider = { scanRegion },
+                    onCode = {
+                        vibrate(context)
+                        onCode(it)
+                    },
+                ),
+            )
         }
         onDispose {
             controller.clearImageAnalysisAnalyzer()
@@ -138,6 +151,22 @@ fun ScannerScreen(target: ScanTarget, onClose: () -> Unit, onCode: (String) -> U
             )
             Box(
                 Modifier.align(Alignment.Center).fillMaxWidth(0.94f).height(140.dp)
+                    .onGloballyPositioned { coordinates ->
+                        val rootSize = coordinates.findRootCoordinates().size
+                        val bounds = coordinates.boundsInRoot()
+                        scanRegion = if (rootSize.width > 0 && rootSize.height > 0) {
+                            ViewScanRegion(
+                                left = bounds.left,
+                                top = bounds.top,
+                                right = bounds.right,
+                                bottom = bounds.bottom,
+                                viewWidth = rootSize.width.toFloat(),
+                                viewHeight = rootSize.height.toFloat(),
+                            )
+                        } else {
+                            null
+                        }
+                    }
                     .border(3.dp, Color(0xFF8FE3CF), RoundedCornerShape(18.dp)),
             )
             Column(
@@ -145,14 +174,18 @@ fun ScannerScreen(target: ScanTarget, onClose: () -> Unit, onCode: (String) -> U
                     .background(Color.Black.copy(alpha = 0.72f)).padding(horizontal = 24.dp, vertical = 18.dp),
             ) {
                 Text(
-                    "Весь штрихкод — внутри рамки",
+                    if (target == ScanTarget.IMEI) "Поместите именно IMEI внутрь рамки" else "Весь нужный штрихкод — внутри рамки",
                     color = Color.White,
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
-                    "Для узкого кода увеличьте масштаб и коснитесь кода для фокуса",
+                    when (target) {
+                        ScanTarget.IMEI -> "SN и коды вне рамки игнорируются. IMEI проверяется по 15 цифрам и двум кадрам"
+                        ScanTarget.SN -> "Коды вне рамки игнорируются. Коснитесь кода для фокуса и увеличьте масштаб"
+                        ScanTarget.ORDER -> "Считывается только код заказа внутри рамки"
+                    },
                     color = Color.White.copy(alpha = 0.85f),
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodySmall,
