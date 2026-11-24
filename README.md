@@ -46,7 +46,7 @@ Debug APK: `app/build/outputs/apk/debug/app-debug.apk`.
 
 `Android CI` запускается для push в `main` и pull request: unit-тесты, lint, debug-сборка и APK-артефакт.
 
-`Android Release CD` запускается по тегу `v*`, собирает подписанный release APK, проверяет его подпись и публикует GitHub Release. Вместе с APK публикуются:
+`Android Release CD` запускается по тегу `v*` или вручную из **Actions → Android Release CD → Run workflow**. При ручном запуске выберите ветку `main` и укажите тег, совпадающий с `versionName` в `app/build.gradle.kts` (сейчас `v1.2.1`). Workflow проверяет совпадение версий, собирает подписанный release APK, проверяет его подпись и публикует GitHub Release, создавая тег на `main`, если его ещё нет. Вместе с APK публикуются:
 - `latest.json` — версия, versionCode, ссылка на APK и SHA-256;
 - `checksums.txt` — контрольная сумма APK.
 
