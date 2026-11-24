@@ -3,6 +3,13 @@ name: Android Release CD
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Тег релиза, например v1.2.1"
+        required: true
+        type: string
+        default: "v1.2.1"
 
 permissions:
   contents: write
@@ -49,10 +56,19 @@ jobs:
       - name: Prepare release artifacts and OTA manifest
         id: version
         env:
-          TAG_NAME: ${{ github.ref_name }}
+          TAG_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
           REPOSITORY: ${{ github.repository }}
         run: |
+          if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release tag must look like v1.2.1" >&2
+            exit 1
+          fi
           VERSION="${TAG_NAME#v}"
+          APP_VERSION="$(sed -nE 's/.*versionName = "([^"]+)".*/\1/p' app/build.gradle.kts | head -n1)"
+          if [ "$VERSION" != "$APP_VERSION" ]; then
+            echo "Tag version $VERSION does not match app version $APP_VERSION" >&2
+            exit 1
+          fi
           APK_NAME="ScanSN-${TAG_NAME}.apk"
           cp app/build/outputs/apk/release/app-release.apk "$APK_NAME"
           SHA256="$(sha256sum "$APK_NAME" | awk '{print $1}')"
@@ -75,14 +91,18 @@ jobs:
           }
           EOF
           echo "name=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          echo "apk=$APK_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: main
           name: ScanSN ${{ steps.version.outputs.name }}
           body_path: RELEASE_NOTES.md
           files: |
-            ScanSN-${{ github.ref_name }}.apk
+            ${{ steps.version.outputs.apk }}
             latest.json
             checksums.txt
           generate_release_notes: false
