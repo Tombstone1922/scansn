@@ -7,8 +7,6 @@ on:
       - "app/build.gradle.kts"
       - "RELEASE_NOTES.md"
       - ".github/workflows/android-release.yml"
-  push_tags:
-    tags: ["v*"]
   workflow_dispatch:
     inputs:
       release_tag:
