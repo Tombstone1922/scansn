@@ -9,6 +9,7 @@ import com.tombstone.scansn.data.ProductCategory
 import com.tombstone.scansn.data.ProductEntity
 import com.tombstone.scansn.data.ProductRepository
 import com.tombstone.scansn.export.TableExport
+import com.tombstone.scansn.scanner.BarcodeSelector
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -127,9 +128,11 @@ class ScanSNViewModel(private val repository: ProductRepository) : ViewModel() {
         product.model.isBlank() -> "Укажите модель"
         product.sn.isBlank() -> "Отсканируйте или введите SN"
         product.category.requiresImei && product.imei.isBlank() -> "Для телефона необходим IMEI"
-        product.imei.isNotBlank() && !product.imei.matches(Regex("\\d{15}")) -> "IMEI должен содержать ровно 15 цифр"
+        product.imei.isNotBlank() && !BarcodeSelector.isValidImei(product.imei) ->
+            "IMEI должен содержать 15 цифр и корректную контрольную цифру"
         product.orderNumber.isBlank() -> "Отсканируйте или введите номер заказа"
-        product.price.isNotBlank() && !product.price.matches(Regex("\\d+([.,]\\d{1,2})?")) -> "Цена должна быть числом, например 16934 или 16934,50"
+        product.price.isNotBlank() && !product.price.matches(Regex("\\d+([.,]\\d{1,2})?")) ->
+            "Цена должна быть числом, например 16934 или 16934,50"
         else -> null
     }
 
