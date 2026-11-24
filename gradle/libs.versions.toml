@@ -11,6 +11,7 @@ navigationCompose = "2.8.5"
 room = "2.6.1"
 camera = "1.4.1"
 barcode = "17.3.0"
+zxing = "3.5.3"
 junit = "4.13.2"
 json = "20240303"
 
@@ -35,6 +36,7 @@ androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", 
 androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camera" }
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camera" }
 mlkit-barcode = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "barcode" }
+zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 json = { group = "org.json", name = "json", version.ref = "json" }
 

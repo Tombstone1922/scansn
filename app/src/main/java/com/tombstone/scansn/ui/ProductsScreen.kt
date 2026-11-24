@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material3.AlertDialog
@@ -56,6 +57,7 @@ fun ProductsScreen(
     products: List<ProductEntity>,
     onAdd: () -> Unit,
     onEdit: (Long) -> Unit,
+    onBarcodes: (Long) -> Unit,
     onExport: () -> Unit,
     onDelete: (Long) -> Unit,
 ) {
@@ -147,7 +149,7 @@ fun ProductsScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     items(filtered, key = { it.id }) { product ->
-                        ProductCard(product, onEdit, { deleteCandidate = product })
+                        ProductCard(product, onEdit, { onBarcodes(product.id) }, { deleteCandidate = product })
                     }
                 }
             }
@@ -168,7 +170,12 @@ fun ProductsScreen(
 }
 
 @Composable
-private fun ProductCard(product: ProductEntity, onEdit: (Long) -> Unit, onDelete: () -> Unit) {
+private fun ProductCard(
+    product: ProductEntity,
+    onEdit: (Long) -> Unit,
+    onBarcodes: () -> Unit,
+    onDelete: () -> Unit,
+) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onEdit(product.id) },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -193,6 +200,7 @@ private fun ProductCard(product: ProductEntity, onEdit: (Long) -> Unit, onDelete
                 if (product.price.isNotBlank()) {
                     Text("${product.price} ₽", fontWeight = FontWeight.Bold)
                 }
+                IconButton(onClick = onBarcodes) { Icon(Icons.Default.QrCode2, "Показать штрихкоды") }
                 IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, "Удалить товар") }
             }
             Spacer(Modifier.height(8.dp))

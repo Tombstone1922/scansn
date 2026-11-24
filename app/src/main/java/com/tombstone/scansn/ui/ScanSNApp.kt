@@ -47,6 +47,7 @@ fun ScanSNApp(viewModel: ScanSNViewModel) {
                         viewModel.editProduct(it)
                         navController.navigate("product/$it")
                     },
+                    onBarcodes = { navController.navigate("barcodes/$it") },
                     onExport = { navController.navigate("export") },
                     onDelete = viewModel::delete,
                 )
@@ -72,6 +73,15 @@ fun ScanSNApp(viewModel: ScanSNViewModel) {
                         navController.popBackStack()
                     },
                 )
+            }
+            composable(
+                route = "barcodes/{productId}",
+                arguments = listOf(navArgument("productId") { type = NavType.LongType }),
+            ) { entry ->
+                val id = entry.arguments?.getLong("productId") ?: 0L
+                products.firstOrNull { it.id == id }?.let { product ->
+                    BarcodeScreen(product = product, onBack = { navController.popBackStack() })
+                }
             }
             composable("export") {
                 ExportScreen(

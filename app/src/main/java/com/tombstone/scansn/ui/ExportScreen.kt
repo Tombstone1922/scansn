@@ -75,7 +75,7 @@ fun ExportScreen(products: List<ProductEntity>, viewModel: ScanSNViewModel, onBa
                 Column(Modifier.padding(16.dp)) {
                     Text("Готово: ${products.size} товаров", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(4.dp))
-                    Text("Скопируйте TSV и вставьте в Excel или Google Таблицы. Длинные SN, IMEI и заказы останутся точным текстом без округления.")
+                    Text("XLSX содержит оформленный лист «Товары» и лист «Штрихкоды» с изображениями Code 128. Длинные SN, IMEI и заказы сохраняются как точный текст без округления.")
                 }
             }
             Button(
