@@ -101,13 +101,19 @@ fun UpdatesScreen(onBack: () -> Unit) {
             if (update != null) {
                 if (needsPermission || !manager.canInstallPackages()) {
                     Text(
-                        "Android требует разрешить установку приложений для ScanSN. После выдачи разрешения вернитесь сюда и нажмите «Установить».",
+                        "Android может запросить разрешение на установку приложений для ScanSN. Вернитесь сюда после выдачи разрешения.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Button(
-                        onClick = { manager.openInstallPermissionSettings(); needsPermission = false },
+                        onClick = {
+                            if (manager.canInstallPackages()) {
+                                needsPermission = false
+                            } else {
+                                manager.openInstallPermissionSettings()
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Разрешить установку") }
+                    ) { Text(if (manager.canInstallPackages()) "Продолжить" else "Разрешить установку") }
                 }
                 Button(
                     onClick = {
