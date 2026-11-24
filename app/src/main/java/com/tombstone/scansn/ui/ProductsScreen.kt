@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -59,6 +60,7 @@ fun ProductsScreen(
     onEdit: (Long) -> Unit,
     onBarcodes: (Long) -> Unit,
     onExport: () -> Unit,
+    onUpdates: () -> Unit,
     onDelete: (Long) -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
@@ -80,6 +82,9 @@ fun ProductsScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onUpdates) {
+                        Icon(Icons.Default.SystemUpdate, contentDescription = "Обновить приложение")
+                    }
                     IconButton(onClick = onExport, enabled = products.isNotEmpty()) {
                         Icon(Icons.Default.TableChart, contentDescription = "Экспорт таблицы")
                     }
