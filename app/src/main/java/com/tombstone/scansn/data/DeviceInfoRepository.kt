@@ -42,16 +42,19 @@ class DeviceInfoRepository(private val dao: DeviceInfoDao) {
             try {
                 val url = "https://en.wikipedia.org/w/api.php?action=parse&pageid=$id&prop=text&format=json&formatversion=2"
                 val html = JSONObject(request(url)).getJSONObject("parse").getString("text")
-                val fields = buildList {
-                    Jsoup.parse(html).select("table.infobox tr").forEach { row ->
-                        val rawLabel = row.selectFirst("th")?.text()?.trim().orEmpty()
-                        val value = row.selectFirst("td")?.text()?.trim().orEmpty().replace(Regex("\\s+"), " ").take(500)
-                        if (rawLabel.isNotBlank() && value.isNotBlank()) {
-                            val label = label(rawLabel)
-                            if (none { it.label.equals(label, true) }) add(DeviceInfoField(label, value))
+                val fields = mutableListOf<DeviceInfoField>()
+                Jsoup.parse(html).select("table.infobox tr").forEach { row ->
+                    val rawLabel = row.selectFirst("th")?.text()?.trim().orEmpty()
+                    val value = row.selectFirst("td")?.text()?.trim().orEmpty()
+                        .replace(Regex("\\s+"), " ").take(500)
+                    if (rawLabel.isNotBlank() && value.isNotBlank()) {
+                        val fieldLabel = label(rawLabel)
+                        val alreadyAdded = fields.any { existing ->
+                            existing.label.equals(fieldLabel, ignoreCase = true)
                         }
+                        if (!alreadyAdded) fields.add(DeviceInfoField(fieldLabel, value))
                     }
-                }.take(35)
+                }
                 if (fields.size >= 3) {
                     val title = URLEncoder.encode(page.optString("title").replace(' ', '_'), "UTF-8").replace("+", "_")
                     return DeviceInfoResult(brand, model, fields, "https://en.wikipedia.org/wiki/$title", System.currentTimeMillis())
