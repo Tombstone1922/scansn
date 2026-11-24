@@ -54,6 +54,7 @@ ksp {
 }
 
 dependencies {
+    implementation("org.jsoup:jsoup:1.18.3")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

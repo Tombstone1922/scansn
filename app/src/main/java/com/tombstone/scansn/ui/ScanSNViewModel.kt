@@ -5,6 +5,8 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.tombstone.scansn.data.DeviceInfoRepository
+import com.tombstone.scansn.data.DeviceInfoResult
 import com.tombstone.scansn.data.ProductCategory
 import com.tombstone.scansn.data.ProductEntity
 import com.tombstone.scansn.data.ProductRepository
@@ -19,7 +21,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class ScanSNViewModel(private val repository: ProductRepository) : ViewModel() {
+class ScanSNViewModel(private val repository: ProductRepository, private val deviceInfoRepository: DeviceInfoRepository) : ViewModel() {
     val products: StateFlow<List<ProductEntity>> = repository.products.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
@@ -30,10 +32,39 @@ class ScanSNViewModel(private val repository: ProductRepository) : ViewModel() {
     val draft: StateFlow<ProductEntity> = _draft.asStateFlow()
     private val _formError = MutableStateFlow<String?>(null)
     val formError: StateFlow<String?> = _formError.asStateFlow()
+    private val _deviceInfo = MutableStateFlow<DeviceInfoResult?>(null)
+    val deviceInfo: StateFlow<DeviceInfoResult?> = _deviceInfo.asStateFlow()
+    private val _deviceInfoLoading = MutableStateFlow(false)
+    val deviceInfoLoading: StateFlow<Boolean> = _deviceInfoLoading.asStateFlow()
+    private val _deviceInfoError = MutableStateFlow<String?>(null)
+    val deviceInfoError: StateFlow<String?> = _deviceInfoError.asStateFlow()
     private val _saving = MutableStateFlow(false)
     val saving: StateFlow<Boolean> = _saving.asStateFlow()
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
+
+    fun loadCachedDeviceInfo(brand: String, model: String) {
+        _deviceInfo.value = null
+        _deviceInfoError.value = null
+        if (brand.isBlank() || model.isBlank()) return
+        viewModelScope.launch {
+            try { _deviceInfo.value = deviceInfoRepository.cached(brand, model) }
+            catch (error: Exception) { _deviceInfoError.value = error.localizedMessage ?: "Ошибка чтения кэша" }
+        }
+    }
+
+    fun refreshDeviceInfo(brand: String, model: String) {
+        if (_deviceInfoLoading.value) return
+        viewModelScope.launch {
+            _deviceInfoLoading.value = true
+            _deviceInfoError.value = null
+            try {
+                _deviceInfo.value = withContext(Dispatchers.IO) { deviceInfoRepository.refresh(brand, model) }
+                _message.value = "Характеристики загружены и сохранены"
+            } catch (error: Exception) { _deviceInfoError.value = error.localizedMessage ?: "Не удалось загрузить характеристики" }
+            finally { _deviceInfoLoading.value = false }
+        }
+    }
 
     fun newProduct() {
         _draft.value = ProductEntity()
@@ -150,9 +181,9 @@ class ScanSNViewModel(private val repository: ProductRepository) : ViewModel() {
         notes = notes.trim(),
     )
 
-    class Factory(private val repository: ProductRepository) : ViewModelProvider.Factory {
+    class Factory(private val repository: ProductRepository, private val deviceInfoRepository: DeviceInfoRepository) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T = ScanSNViewModel(repository) as T
+        override fun <T : ViewModel> create(modelClass: Class<T>): T = ScanSNViewModel(repository, deviceInfoRepository) as T
     }
 }
 

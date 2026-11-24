@@ -53,6 +53,7 @@ fun ScanSNApp(viewModel: ScanSNViewModel) {
                     onDelete = viewModel::delete,
                 )
             }
+            composable("device-info") { DeviceInfoScreen(viewModel = viewModel, onBack = { navController.popBackStack() }) }
             composable("updates") {
                 UpdatesScreen(onBack = { navController.popBackStack() })
             }
@@ -65,6 +66,7 @@ fun ScanSNApp(viewModel: ScanSNViewModel) {
                     products = products,
                     onBack = { navController.popBackStack() },
                     onScan = { target -> navController.navigate("scanner/${target.name}") },
+                    onDeviceInfo = { navController.navigate("device-info") },
                 )
             }
             composable("scanner/{target}") { entry ->

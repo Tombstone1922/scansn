@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -53,6 +54,7 @@ fun ProductFormScreen(
     products: List<ProductEntity>,
     onBack: () -> Unit,
     onScan: (ScanTarget) -> Unit,
+    onDeviceInfo: () -> Unit,
 ) {
     val draft by viewModel.draft.collectAsState()
     val error by viewModel.formError.collectAsState()
@@ -117,6 +119,12 @@ fun ProductFormScreen(
                 suggestions = Catalog.models(draft.brand, draft.category, products, draft.componentType),
                 onValueChange = { value -> viewModel.updateDraft { it.copy(model = value) } },
             )
+            if (draft.category != ProductCategory.PC_COMPONENT) {
+                TextButton(onClick = onDeviceInfo, enabled = draft.brand.isNotBlank() && draft.model.isNotBlank()) {
+                    Icon(Icons.Default.Info, contentDescription = null)
+                    Text("Загрузить инфу об устройстве")
+                }
+            }
             Text(
                 "Офлайн-каталог: ${Catalog.modelCount(draft.category)} моделей. Можно вводить своё значение.",
                 style = MaterialTheme.typography.bodySmall,
