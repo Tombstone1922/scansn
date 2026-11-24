@@ -121,9 +121,18 @@ class DeviceInfoRepository(private val dao: DeviceInfoDao) {
             else -> brand.trim().lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
         }
         val cleanModel = model.trim()
+        val compactModel = cleanModel.lowercase().replace(Regex("[^a-z0-9]"), "")
+        // Known manufacturer model codes are aliases, not separate products.
+        val knownAliases = mapOf(
+            "xt25374" to "moto-g100s",
+            "xt21254" to "moto-g100"
+        )
+        val aliasedSlug = knownAliases[compactModel]
         val modelSlug = cleanModel.lowercase()
             .replace(Regex("[^a-z0-9]+"), "-").trim('-')
-        val candidates = linkedSetOf(modelSlug)
+        val candidates = linkedSetOf<String>()
+        if (aliasedSlug != null) candidates.add(aliasedSlug)
+        candidates.add(modelSlug)
         // Motorola catalogue uses the full "moto-" prefix for G-series product names.
         if (brandSlug == "motorola" && !modelSlug.startsWith("moto-") &&
             (modelSlug.startsWith("g") || modelSlug.startsWith("edge") || modelSlug.startsWith("razr"))) {
@@ -138,7 +147,8 @@ class DeviceInfoRepository(private val dao: DeviceInfoDao) {
                     .timeout(15000)
                     .get()
                 val heading = document.selectFirst("h1")?.text().orEmpty()
-                val expected = cleanModel.lowercase().replace(Regex("[^a-z0-9]"), "")
+                val expected = (aliasedSlug?.substringAfterLast('/') ?: cleanModel)
+                    .lowercase().replace(Regex("[^a-z0-9]"), "")
                 val actual = heading.lowercase().replace(Regex("[^a-z0-9]"), "")
                 if (heading.isBlank() || !actual.contains(expected)) continue
 
