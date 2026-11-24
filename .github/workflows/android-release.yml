@@ -46,16 +46,43 @@ jobs:
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
 
-      - name: Prepare release artifact
+      - name: Prepare release artifacts and OTA manifest
         id: version
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
         run: |
-          echo "name=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-          cp app/build/outputs/apk/release/app-release.apk "ScanSN-${GITHUB_REF_NAME}.apk"
+          VERSION="${TAG_NAME#v}"
+          APK_NAME="ScanSN-${TAG_NAME}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$APK_NAME"
+          SHA256="$(sha256sum "$APK_NAME" | awk '{print $1}')"
+          VERSION_CODE="$(sed -nE 's/.*versionCode = ([0-9]+).*/\1/p' app/build.gradle.kts | head -n1)"
+          if [ -z "$VERSION_CODE" ]; then
+            echo "Could not read versionCode from app/build.gradle.kts" >&2
+            exit 1
+          fi
+          printf '%s  %s\n' "$SHA256" "$APK_NAME" > checksums.txt
+          cat > latest.json <<EOF
+          {
+            "packageName": "com.tombstone.scansn",
+            "versionName": "$VERSION",
+            "versionCode": $VERSION_CODE,
+            "releaseTag": "$TAG_NAME",
+            "apkFile": "$APK_NAME",
+            "apkUrl": "https://github.com/$REPOSITORY/releases/download/$TAG_NAME/$APK_NAME",
+            "sha256": "$SHA256",
+            "minimumSdk": 26
+          }
+          EOF
+          echo "name=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: ScanSN ${{ steps.version.outputs.name }}
           body_path: RELEASE_NOTES.md
-          files: ScanSN-${{ github.ref_name }}.apk
+          files: |
+            ScanSN-${{ github.ref_name }}.apk
+            latest.json
+            checksums.txt
           generate_release_notes: false
