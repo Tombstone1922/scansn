@@ -44,10 +44,22 @@ class DeviceInfoRepository(private val dao: DeviceInfoDao) {
         var primaryUrl = ""
         val failures = mutableListOf<String>()
 
+        // Start with phone-specific catalogues: Wikipedia is too sparse and often misses
+        // regional / China-market models such as Moto G100s.
+        try {
+            val gsmchoice = lookupGsmchoice(normalizedBrand, normalizedModel)
+            collected.addAll(gsmchoice.first)
+            primaryUrl = gsmchoice.second
+        } catch (error: Exception) {
+            failures.add("GSMchoice: ${error.message ?: "нет результата"}")
+        }
+
         try {
             val wiki = lookupWikipedia(normalizedBrand, normalizedModel)
-            collected.addAll(wiki.first)
-            primaryUrl = wiki.second
+            wiki.first.forEach { candidate ->
+                if (collected.none { it.label.equals(candidate.label, true) }) collected.add(candidate)
+            }
+            if (primaryUrl.isBlank() && wiki.first.isNotEmpty()) primaryUrl = wiki.second
         } catch (error: Exception) {
             failures.add("Wikipedia: ${error.message ?: "нет результата"}")
         }
@@ -83,6 +95,73 @@ class DeviceInfoRepository(private val dao: DeviceInfoDao) {
             json.toString(), primaryUrl, result.fetchedAt
         ))
         return result
+    }
+
+
+    /**
+     * GSMchoice has a broad handset catalogue and indexes model names and manufacturer
+     * model codes (for example Moto G100s / XT2537-4). Prefer exact title matches so a
+     * similarly named phone is never silently presented as the requested device.
+     */
+    private fun lookupGsmchoice(brand: String, model: String): Pair<List<DeviceInfoField>, String> {
+        val brandSlug = when (brand.lowercase().replace(" ", "")) {
+            "motorola", "moto" -> "motorola"
+            "samsung" -> "samsung"
+            "apple" -> "apple"
+            "google" -> "google"
+            "xiaomi", "redmi", "poco" -> brand.lowercase()
+            "honor" -> "honor"
+            "huawei" -> "huawei"
+            "oneplus" -> "oneplus"
+            "oppo" -> "oppo"
+            "realme" -> "realme"
+            "vivo" -> "vivo"
+            "tecno" -> "tecno"
+            "infinix" -> "infinix"
+            else -> brand.trim().lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
+        }
+        val cleanModel = model.trim()
+        val modelSlug = cleanModel.lowercase()
+            .replace(Regex("[^a-z0-9]+"), "-").trim('-')
+        val candidates = linkedSetOf(modelSlug)
+        // Motorola catalogue uses the full "moto-" prefix for G-series product names.
+        if (brandSlug == "motorola" && !modelSlug.startsWith("moto-") &&
+            (modelSlug.startsWith("g") || modelSlug.startsWith("edge") || modelSlug.startsWith("razr"))) {
+            candidates.add("moto-$modelSlug")
+        }
+        var lastError: Exception? = null
+        for (slug in candidates) {
+            val pageUrl = "https://www.gsmchoice.com/en/catalogue/$brandSlug/$slug/"
+            try {
+                val document = Jsoup.connect(pageUrl)
+                    .userAgent("Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36")
+                    .timeout(15000)
+                    .get()
+                val heading = document.selectFirst("h1")?.text().orEmpty()
+                val expected = cleanModel.lowercase().replace(Regex("[^a-z0-9]"), "")
+                val actual = heading.lowercase().replace(Regex("[^a-z0-9]"), "")
+                if (heading.isBlank() || !actual.contains(expected)) continue
+
+                val fields = mutableListOf<DeviceInfoField>()
+                document.select("table tr").forEach { row ->
+                    val cells = row.select("th, td")
+                    if (cells.size < 2) return@forEach
+                    val rawLabel = cells.first()?.text()?.trim().orEmpty()
+                    val value = cells.drop(1).joinToString(" | ") { it.text().trim() }
+                        .replace(Regex("\\s+"), " ").trim().take(500)
+                    if (rawLabel.isBlank() || value.isBlank()) return@forEach
+                    val normalized = label(rawLabel)
+                    if (fields.none { it.label.equals(normalized, true) }) {
+                        fields.add(DeviceInfoField(normalized, value, "GSMchoice", pageUrl))
+                    }
+                }
+                // Reject pages with only navigation / metadata, not actual specifications.
+                if (fields.size >= 5) return fields to pageUrl
+            } catch (error: Exception) {
+                lastError = error
+            }
+        }
+        throw IllegalStateException(lastError?.message ?: "точная страница модели не найдена")
     }
 
     private fun lookupWikipedia(brand: String, model: String): Pair<List<DeviceInfoField>, String> {
@@ -193,7 +272,7 @@ class DeviceInfoRepository(private val dao: DeviceInfoDao) {
     companion object {
         fun normalizeTac(input: String): String? {
             val digits = input.filter(Char::isDigit)
-            return if (digits.length == 8) digits else null
+            return when (digits.length) {\n                8 -> digits\n                15 -> digits.take(8)\n                else -> null\n            }
         }
         private fun key(brand: String, model: String) = "${brand.trim().lowercase()}|${model.trim().lowercase()}"
     }
