@@ -20,7 +20,8 @@ class BarcodeAnalyzer(
     private val delivered = AtomicBoolean(false)
     private val processing = AtomicBoolean(false)
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val requiredMatches = if (target == ScanTarget.IMEI) 2 else 1
+    // Require temporal agreement for every field to reduce one-frame false positives.
+    private val requiredMatches = if (target == ScanTarget.IMEI) 3 else 2
     private var pendingValue: String? = null
     private var matchCount = 0
     private var missedFrames = 0
