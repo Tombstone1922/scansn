@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
@@ -55,15 +54,14 @@ class UpdateManager(private val context: Context) {
         }
         require(sha256.matches(Regex("[a-f0-9]{64}"))) { "Некорректная контрольная сумма" }
 
-        val currentVersionCode = currentVersionCode()
-        if (versionCode <= currentVersionCode) {
+        if (versionCode <= currentVersionCode()) {
             UpdateCheckResult.UpToDate(currentVersionName())
         } else {
             UpdateCheckResult.Available(UpdateInfo(versionName, versionCode, apkUrl, sha256))
         }
     }
 
-    suspend fun downloadAndInstall(update: UpdateInfo): Unit = withContext(Dispatchers.IO) {
+    suspend fun downloadAndInstall(update: UpdateInfo) = withContext(Dispatchers.IO) {
         val directory = File(context.cacheDir, "updates").apply { mkdirs() }
         val apk = File(directory, "ScanSN-${update.versionName}.apk")
         download(update.apkUrl, apk)
@@ -99,11 +97,13 @@ class UpdateManager(private val context: Context) {
         }
     }
 
+    @Suppress("DEPRECATION")
     private fun currentVersionCode(): Long {
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode else @Suppress("DEPRECATION") info.versionCode.toLong()
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode else info.versionCode.toLong()
     }
 
+    @Suppress("DEPRECATION")
     private fun currentVersionName(): String =
         context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "неизвестно"
 
