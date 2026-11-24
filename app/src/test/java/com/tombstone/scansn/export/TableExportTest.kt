@@ -62,7 +62,7 @@ class TableExportTest {
         assertTrue(workbook.contains("name=\"Штрихкоды\""))
         val drawing = entries.getValue("xl/drawings/drawing1.xml").toString(StandardCharsets.UTF_8)
         assertEquals(3, "r:embed".toRegex().findAll(drawing).count())
-        val png = entries.getValue("xl/media/image1.png").toByteArray()
+        val png = entries.getValue("xl/media/image1.png")
         assertEquals(listOf(-119, 80, 78, 71, 13, 10, 26, 10), png.take(8).map { it.toInt() })
     }
 
